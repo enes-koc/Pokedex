@@ -74,7 +74,6 @@ dependencies {
     implementation "androidx.navigation:navigation-compose:1.0.0-alpha09"
     implementation "androidx.constraintlayout:constraintlayout-compose:1.0.0-alpha05"
 
-
     implementation(platform("org.jetbrains.kotlin:kotlin-bom:1.8.0"))
 
     // Retrofit
@@ -99,8 +98,11 @@ dependencies {
     implementation "com.google.accompanist:accompanist-coil:0.7.0"
 
     //Dagger - Hilt
-    // For hilt Implementation
     implementation 'com.google.dagger:hilt-android:2.46.1'
     kapt 'com.google.dagger:hilt-compiler:2.46.1'
 
+    implementation 'androidx.hilt:hilt-navigation-compose:1.0.0-alpha01'
+    kapt("androidx.hilt:hilt-compiler:1.0.0")
+
+    implementation "androidx.palette:palette:1.0.0"
 }
