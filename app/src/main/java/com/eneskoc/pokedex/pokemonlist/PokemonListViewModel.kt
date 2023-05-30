@@ -5,7 +5,7 @@ import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.capitalize
+import androidx.compose.ui.graphics.lerp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.palette.graphics.Palette
@@ -14,7 +14,9 @@ import com.eneskoc.pokedex.repository.PokemonRepository
 import com.eneskoc.pokedex.util.Constants.PAGE_SIZE
 import com.eneskoc.pokedex.util.Resource
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import retrofit2.http.Query
 import java.util.*
 import javax.inject.Inject
 
@@ -30,9 +32,40 @@ class PokemonListViewModel @Inject constructor(
     var isLoading = mutableStateOf(false)
     var endReached = mutableStateOf(false)
 
+
+    private var cachedPokemonList = listOf<PokedexListEntry>()
+    private var isSearchStarting = true
+    var isSearching = mutableStateOf(false)
+
     init {
         loadPokemonPaginated()
     }
+
+    fun searchPokemonList(query: String) {
+        val listToSearch = if (isSearchStarting) {
+            pokemonList.value
+        } else {
+            cachedPokemonList
+        }
+        viewModelScope.launch(Dispatchers.Default) {
+            if (query.isEmpty()){
+                pokemonList.value=cachedPokemonList
+                isSearching.value=false
+                isSearchStarting=true
+                return@launch
+            }
+            val results=listToSearch.filter {
+                it.pokemonName.contains(query.trim(),ignoreCase = true) || it.number.toString()==query.trim()
+            }
+            if (isSearchStarting){
+                cachedPokemonList=pokemonList.value
+                isSearchStarting=false
+            }
+            pokemonList.value=results
+            isSearching.value=true
+        }
+    }
+
     fun loadPokemonPaginated() {
         viewModelScope.launch {
             isLoading.value = true
@@ -63,12 +96,18 @@ class PokemonListViewModel @Inject constructor(
         }
     }
 
-    fun calcDominantColor(drawable: Drawable, onFinish: (Color) -> Unit) {
+    fun calcDominantColor(drawable: Drawable, factor: Float, onFinish: (Color) -> Unit) {
         val bmp = (drawable as BitmapDrawable).bitmap.copy(Bitmap.Config.ARGB_8888, true)
         Palette.from(bmp).generate { palette ->
             palette?.dominantSwatch?.rgb?.let { colorValue ->
-                onFinish(Color(colorValue))
+                val color = Color(colorValue)
+                val lightenedColor = lightenColor(color, factor)
+                onFinish(lightenedColor)
             }
         }
+    }
+
+    fun lightenColor(color: Color, factor: Float): Color {
+        return lerp(color, Color.White, factor)
     }
 }
