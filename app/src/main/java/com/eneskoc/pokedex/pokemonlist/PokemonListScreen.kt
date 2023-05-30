@@ -5,6 +5,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -22,7 +23,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
@@ -31,13 +31,14 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.hilt.navigation.compose.hiltNavGraphViewModel
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import coil.compose.SubcomposeAsyncImage
+import coil.compose.SubcomposeAsyncImageContent
 import coil.request.ImageRequest
 import com.eneskoc.pokedex.R
 import com.eneskoc.pokedex.data.models.PokedexListEntry
 import com.eneskoc.pokedex.ui.theme.RobotoCondensed
-import com.google.accompanist.coil.CoilImage
 
 @Composable
 fun PokemonListScreen(
@@ -64,6 +65,10 @@ fun PokemonListScreen(
             ) {
 
             }
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            PokemonList(navController=navController)
+            
         }
     }
 }
@@ -110,11 +115,32 @@ fun SearchBar(
 }
 
 @Composable
+fun PokemonList(
+    navController: NavController,
+    viewModel: PokemonListViewModel=  hiltViewModel()
+){
+    val pokemonList by remember{viewModel.pokemonList}
+    val endReached by remember{viewModel.endReached}
+    val loadError by remember{viewModel.loadError}
+    val isLoading by remember{viewModel.isLoading}
+
+    LazyColumn(contentPadding = PaddingValues(16.dp)){
+        items(pokemonList.size){
+            if (it>=pokemonList.size-1 && !endReached){
+                viewModel.loadPokemonPaginated()
+            }
+            PokedexEntry(entry = pokemonList.get(it), navController = navController)
+        }
+    }
+}
+
+
+@Composable
 fun PokedexEntry(
     entry: PokedexListEntry,
     navController: NavController,
     modifier: Modifier = Modifier,
-    viewModel: PokemonListViewModel = hiltNavGraphViewModel()
+    viewModel: PokemonListViewModel = hiltViewModel()
 ) {
     val defaultDominantColor = MaterialTheme.colors.surface
     var dominantColor by remember {
@@ -133,26 +159,27 @@ fun PokedexEntry(
             }
     ) {
         Column {
-            CoilImage(
-                request = ImageRequest.Builder(LocalContext.current)
+            SubcomposeAsyncImage(
+                model = ImageRequest.Builder(LocalContext.current)
                     .data(entry.imageUrl)
-                    .target {
-                        viewModel.calcDominantColor(it) { color ->
-                            dominantColor = color
-                        }
-                    }
+                    .crossfade(true)
                     .build(),
                 contentDescription = entry.pokemonName,
-                fadeIn = true,
+                loading = {
+                    CircularProgressIndicator(
+                        color = MaterialTheme.colors.primary, modifier = Modifier.scale(0.5F)
+                    )
+                },
+                success = { success ->
+                    viewModel.calcDominantColor(success.result.drawable){
+                        dominantColor = it
+                    }
+                    SubcomposeAsyncImageContent()
+                },
                 modifier = Modifier
                     .size(120.dp)
                     .align(CenterHorizontally)
-            ) {
-                CircularProgressIndicator(
-                    color = MaterialTheme.colors.primary,
-                    modifier = Modifier.scale(0.5f)
-                )
-            }
+            )
             Text(
                 text = entry.pokemonName,
                 fontFamily = RobotoCondensed,
